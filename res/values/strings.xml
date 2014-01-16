@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Select the picture folder.</string>
+    <string name="app_name">Picture Slider</string>
+</resources>
