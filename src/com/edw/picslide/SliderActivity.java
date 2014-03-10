@@ -3,11 +3,15 @@ package com.edw.picslide;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.os.Handler;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -19,28 +23,34 @@ import android.widget.Toast;
 
 public class SliderActivity extends Activity implements OnTouchListener{
     
+	 
+	PowerManager powerManager = null;
+	WakeLock wakeLock = null;
+	
 	ImageView ivSlide;
 	String[] imgFiles = null;
 	Bitmap curBmp = null;
 	int curId = 0;
 	int totalNum = 1;
-	Handler slideHandler = new Handler();
+//	Handler slideHandler = new Handler();
+	
+	Timer updateTimer = null;
 	
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        
         setContentView(R.layout.slide);
         
-        ivSlide = (ImageView)findViewById(R.id.ivSlide);
+
+    	ivSlide = (ImageView)findViewById(R.id.ivSlide);
         ivSlide.setOnTouchListener(this);
         
         File file = new File(Config.path);
         if(!file.isDirectory()){
         	Config.path = file.getParent();
-        	imgFiles =listImages(Config.path);
+        	imgFiles = listImages(Config.path);
         	totalNum = imgFiles.length;
         	String name = file.getName();
         	for(int i=0;i<totalNum;i++){
@@ -63,16 +73,40 @@ public class SliderActivity extends Activity implements OnTouchListener{
         	totalNum = imgFiles.length;
         	sildeView(imgFiles[curId]);
         }
+        
+        this.powerManager = (PowerManager)this.getSystemService(Context.POWER_SERVICE);
+        this.wakeLock = this.powerManager.newWakeLock(PowerManager.FULL_WAKE_LOCK, "Slider Lock");
     }
+    
+    @Override
+    protected void onPause(){
+    	super.onPause();
+    	if(updateTimer != null){
+			try{
+			updateTimer.cancel();
+			updateTimer = null;
+			System.gc();
+			}catch(Exception e){;}
+		}
+    	if(this.wakeLock != null)
+    		this.wakeLock.release();
+    }
+    
+    @Override
+    protected void onResume(){
+    	super.onResume();
+    	if(this.wakeLock != null)
+    		this.wakeLock.acquire();
+    }
+    
     
     public String[] listImages(String path){
     	File curFolder = new File(path);
     	String[] images = curFolder.list(new FilenameFilter(){
 			public boolean accept(File dir, String filename) {
-				if(filename.endsWith(".jpg")
-				|| filename.endsWith(".png")
-				|| filename.endsWith(".bmp")){
-					return true;
+				for(int i=0; i<Config.TYPES.length; i++){
+					if(filename.toLowerCase().endsWith(Config.TYPES[i]))
+						return true;
 				}
 				return false;
 			}
@@ -84,45 +118,54 @@ public class SliderActivity extends Activity implements OnTouchListener{
     	Toast.makeText(this, str, Toast.LENGTH_LONG).show();
     }
     
-    public void showImage(String name){
-    	if(curBmp != null){
-    		curBmp = null;
-    	}
-    	curBmp = ImageProc.readBitmap(Config.path + "/" + name, Config.SCR_W, Config.SCR_H);
-    	ivSlide.setImageBitmap(curBmp);
+    public void showImage(final String name){
+    	this.runOnUiThread(new Runnable() {
+			public void run(){
+				if(curBmp != null){
+		    		curBmp = null;
+		    	}
+		    	curBmp = ImageProc.readBitmap(Config.path + "/" + name, Config.SCR_W, Config.SCR_H);
+				ivSlide.setImageBitmap(curBmp);
+			}
+		});   	
+    }
+    
+    public void showNextImage(){
+    	curId ++;
+		curId %= totalNum;
+		
+		if(Config.isRandom)
+			curId = new Random().nextInt(totalNum);
+		
+		try{
+			showImage(imgFiles[curId]);
+		}catch(Exception ex){}
     }
     
     public void sildeView(String name){
-    	
-    	showImage(name);
-    	
-    	if(slideHandler != null){
-	    	slideHandler.postDelayed(new Runnable(){
-				public void run() {
-					curId ++;
-					curId %= totalNum;
-					
-					if(Config.isRandom)
-						curId = new Random().nextInt(totalNum);
-					
-					try{
-						sildeView(imgFiles[curId]);
-					}catch(Exception ex){}
-				}
-	    	}, Config.interval * 1000);
-    	}
-    	
+    	showImage(name);    	
+    	startTimer();
     }
     
     @Override
 	public void onBackPressed() {
-    	slideHandler = null;
+//    	slideHandler = null;
 		super.onBackPressed();
 	}
     
     
+	public void startTimer(){
+		updateTimer = new Timer();
+		updateTimer.schedule(new UpdataTask(), Config.interval * 1000, Config.interval * 1000);
+	}
     
-
+	private class UpdataTask extends TimerTask{
+		@Override
+		public void run() {
+			showNextImage();
+		}
+	}
+	
 	public boolean onTouch(View arg0, MotionEvent event) {
 		switch(event.getAction()){
 	        case MotionEvent.ACTION_DOWN:

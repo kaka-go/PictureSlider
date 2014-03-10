@@ -7,6 +7,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
@@ -20,6 +21,9 @@ import android.widget.TextView;
 
 public class PictureSliderActivity extends Activity 
 	implements OnItemClickListener{
+	
+	com.baidu.mobads.AdView baiduAdView;
+	com.google.ads.AdView googleAdView;
 	
 	TextView tvFolderPath;
 	EditText etInterval;
@@ -38,7 +42,9 @@ public class PictureSliderActivity extends Activity
         tvFolderPath = (TextView)findViewById(R.id.tvFolderPath);
         etInterval = (EditText)findViewById(R.id.etInterval);
         lvFolderList = (ListView)findViewById(R.id.lvFolderList);
-     
+
+        etInterval.setInputType(InputType.TYPE_CLASS_NUMBER);
+        
         Config.path = Environment.getExternalStorageDirectory().getAbsolutePath();
         Log.d("sdcard", Config.path);
         
@@ -49,10 +55,17 @@ public class PictureSliderActivity extends Activity
         
         DisplayMetrics dm = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(dm);
-        //获得手机分辨率
+       
+        // screen resolution
         Config.SCR_W = dm.widthPixels;
         Config.SCR_H = dm.heightPixels;
         Log.d("SCR_W, H", Config.SCR_W +" , " + Config.SCR_H);
+        
+      baiduAdView = (com.baidu.mobads.AdView) this.findViewById(R.id.baiduAdView);
+      baiduAdView.setVisibility(com.baidu.mobads.AdView.VISIBLE);
+      
+      googleAdView = (com.google.ads.AdView)this.findViewById(R.id.googleAdView);
+      googleAdView.loadAd(new com.google.ads.AdRequest());
     }
     
     public String[] listFolders(String path){
@@ -62,10 +75,10 @@ public class PictureSliderActivity extends Activity
     	    	if(file.isDirectory())
     	    		return true;
     	    	String filename = file.getName();
-    	    	if(filename.endsWith(".jpg")
-    			|| filename.endsWith(".png")
-    			|| filename.endsWith(".bmp"))
-    	    		return true;
+    	    	for(int i=0; i<Config.TYPES.length; i++){
+					if(filename.toLowerCase().endsWith(Config.TYPES[i]))
+						return true;
+				}
     	    	return false;
     	    }
     	});

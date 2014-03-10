@@ -6,4 +6,6 @@ public class Config {
 	public static int SCR_W = 480;
 	public static int SCR_H = 800;
 	public static boolean isRandom = false;
+	
+	public static String[] TYPES = {".jpg", ".png", ".jpeg", ".bmp", ".gif"};
 }
